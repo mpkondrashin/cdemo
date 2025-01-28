@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: CloudFormation template to create three Windows VMs with RDP access and a PostgreSQL RDS instance connected to DSM01.
+
+Resources:
+
+  VPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock: "10.0.0.0/16"
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: "Name"
+          Value: "TMDS_VPC"
+
+  InternetGateway:
+    Type: "AWS::EC2::InternetGateway"
+
+  AttachGateway:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  PublicSubnet:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: "10.0.1.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 0, !GetAZs "" ]
+
+  RouteTable:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref VPC
+
+  PublicRoute:
+    Type: "AWS::EC2::Route"
+    Properties:
+      RouteTableId: !Ref RouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  RouteTableAssociation:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref RouteTable
+
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow RDP access"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3389
+          ToPort: 3389
+          CidrIp: "109.186.53.120/0"
+
+  DSM01:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "t2.micro"
+      ImageId: !Sub "{{resolve:ssm:/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base}}"
+      KeyName: "MK_EG_Key_Maccabident"
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          SubnetId: !Ref PublicSubnet
+          GroupSet:
+            - !Ref SecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: "DSM01"
+
+  DSR01:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "t2.micro"
+      ImageId: !Sub "{{resolve:ssm:/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base}}"
+      KeyName: "MK_EG_Key_Maccabident"
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          SubnetId: !Ref PublicSubnet
+          GroupSet:
+            - !Ref SecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: "DSR01"
+
+  DSA01:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: "t2.micro"
+      ImageId: !Sub "{{resolve:ssm:/aws/service/ami-windows-latest/Windows_Server-2019-English-Full-Base}}"
+      KeyName: "MK_EG_Key_Maccabident"
+      NetworkInterfaces:
+        - AssociatePublicIpAddress: true
+          DeviceIndex: 0
+          SubnetId: !Ref PublicSubnet
+          GroupSet:
+            - !Ref SecurityGroup
+      Tags:
+        - Key: "Name"
+          Value: "DSA01"
+
+  PostgreSQLSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Allow PostgreSQL access from DSM01"
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref SecurityGroup
+
+  DSMPostgreSQLDBInstance:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBInstanceIdentifier: "postgres-db-instance"
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: "postgres"
+      EngineVersion: "13.3"
+      MasterUsername: "admin"
+      MasterUserPassword: "fSfjYvOAyncJF622"
+      DBName: "dsmdb"
+      VPCSecurityGroups:
+        - !Ref PostgreSQLSecurityGroup
+      DBSubnetGroupName: !Ref PublicSubnet
+      MultiAZ: false
+      PubliclyAccessible: true
+      StorageType: "gp2"
+      Tags:
+        - Key: "Name"
+          Value: "DSM PostgreSQL RDS Instance"
+
+Outputs:
+  Instance1PublicIP:
+    Description: "Public IP of the first instance."
+    Value: !GetAtt DSA01.PublicIp
+
+  Instance2PublicIP:
+    Description: "Public IP of the second instance."
+    Value: !GetAtt DSR01.PublicIp
+
+  Instance3PublicIP:
+    Description: "Public IP of the third instance."
+    Value: !GetAtt DSA01.PublicIp
+
+  PostgreSQLEndpoint:
+    Description: "PostgreSQL RDS endpoint"
+    Value: !GetAtt DSMPostgreSQLDBInstance.Endpoint.Address
