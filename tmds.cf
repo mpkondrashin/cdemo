@@ -22,13 +22,21 @@ Resources:
       VpcId: !Ref VPC
       InternetGatewayId: !Ref InternetGateway
 
-  PublicSubnet:
+  PublicSubnetAZ1:
     Type: "AWS::EC2::Subnet"
     Properties:
       VpcId: !Ref VPC
       CidrBlock: "10.0.1.0/24"
       MapPublicIpOnLaunch: true
       AvailabilityZone: !Select [ 0, !GetAZs "" ]
+
+  PublicSubnetAZ2:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: "10.0.2.0/24"
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [ 1, !GetAZs "" ]
 
   RouteTable:
     Type: "AWS::EC2::RouteTable"
@@ -42,10 +50,16 @@ Resources:
       DestinationCidrBlock: "0.0.0.0/0"
       GatewayId: !Ref InternetGateway
 
-  RouteTableAssociation:
+  RouteTableAssociationAZ1:
     Type: "AWS::EC2::SubnetRouteTableAssociation"
     Properties:
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref PublicSubnetAZ1
+      RouteTableId: !Ref RouteTable
+
+  RouteTableAssociationAZ2:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      SubnetId: !Ref PublicSubnetAZ2
       RouteTableId: !Ref RouteTable
 
   SecurityGroup:
@@ -68,7 +82,7 @@ Resources:
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: 0
-          SubnetId: !Ref PublicSubnet
+          SubnetId: !Ref PublicSubnetAZ1
           GroupSet:
             - !Ref SecurityGroup
       Tags:
@@ -84,7 +98,7 @@ Resources:
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: 0
-          SubnetId: !Ref PublicSubnet
+          SubnetId: !Ref PublicSubnetAZ1
           GroupSet:
             - !Ref SecurityGroup
       Tags:
@@ -100,7 +114,7 @@ Resources:
       NetworkInterfaces:
         - AssociatePublicIpAddress: true
           DeviceIndex: 0
-          SubnetId: !Ref PublicSubnet
+          SubnetId: !Ref PublicSubnetAZ1
           GroupSet:
             - !Ref SecurityGroup
       Tags:
@@ -123,12 +137,13 @@ Resources:
     Properties:
       DBSubnetGroupDescription: "Subnet group for PostgreSQL RDS instance"
       SubnetIds:
-        - !Ref PublicSubnet
+        - !Ref PublicSubnetAZ1
+        - !Ref PublicSubnetAZ2
       Tags:
         - Key: "Name"
           Value: "PostgreSQL DB Subnet Group"
 
-  DSMPostgreSQLDBInstance:
+  PostgreSQLDBInstance:
     Type: "AWS::RDS::DBInstance"
     Properties:
       DBInstanceIdentifier: "postgres-db-instance"
@@ -147,7 +162,7 @@ Resources:
       StorageType: "gp2"
       Tags:
         - Key: "Name"
-          Value: "DSM PostgreSQL RDS Instance"
+          Value: "PostgreSQL RDS Instance"
 
 Outputs:
   Instance1PublicIP:
@@ -164,4 +179,4 @@ Outputs:
 
   PostgreSQLEndpoint:
     Description: "PostgreSQL RDS endpoint"
-    Value: !GetAtt DSMPostgreSQLDBInstance.Endpoint.Address
+    Value: !GetAtt PostgreSQLDBInstance.Endpoint.Address
