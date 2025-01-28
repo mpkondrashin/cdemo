@@ -118,6 +118,16 @@ Resources:
           ToPort: 5432
           SourceSecurityGroupId: !Ref SecurityGroup
 
+  PostgreSQLSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: "Subnet group for PostgreSQL RDS instance"
+      SubnetIds:
+        - !Ref PublicSubnet
+      Tags:
+        - Key: "Name"
+          Value: "PostgreSQL DB Subnet Group"
+
   DSMPostgreSQLDBInstance:
     Type: "AWS::RDS::DBInstance"
     Properties:
@@ -128,10 +138,10 @@ Resources:
       EngineVersion: "13.3"
       MasterUsername: "admin"
       MasterUserPassword: "fSfjYvOAyncJF622"
-      DBName: "dsmdb"
+      DBName: "yourdbname"
       VPCSecurityGroups:
         - !Ref PostgreSQLSecurityGroup
-      DBSubnetGroupName: !Ref PublicSubnet
+      DBSubnetGroupName: !Ref PostgreSQLSubnetGroup
       MultiAZ: false
       PubliclyAccessible: true
       StorageType: "gp2"
