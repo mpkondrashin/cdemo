@@ -138,11 +138,11 @@ Resources:
       EngineVersion: "13.3"
       MasterUsername: "admin"
       MasterUserPassword: "fSfjYvOAyncJF622"
-      DBName: "yourdbname"
+      DBName: "dsmdb"
       VPCSecurityGroups:
         - !Ref PostgreSQLSecurityGroup
       DBSubnetGroupName: !Ref PostgreSQLSubnetGroup
-      MultiAZ: false
+      MultiAZ: false  # No high availability
       PubliclyAccessible: true
       StorageType: "gp2"
       Tags:
