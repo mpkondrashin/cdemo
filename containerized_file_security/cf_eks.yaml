@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "CloudFormation template to create an Amazon EKS Cluster with a managed node group."
+Description: "CloudFormation template to create an Amazon EKS Cluster to showcase File Security. https://github.com/mpkondrashin/cdemo/tree/main/containerized_file_security"
 
 Parameters:
   ClusterName:
