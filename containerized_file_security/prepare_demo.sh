@@ -13,14 +13,17 @@ aws cloudformation create-stack \
   --template-body file://cf_eks.yaml \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
 
+echo "Wait for EKS cluster to be created"
+aws cloudformation wait stack-create-complete --stack-name demo-eks-cluster
+
 echo "Configure kubectl to use the EKS cluster"
 aws eks update-kubeconfig --name demo-eks-cluster
 
-aws cloudformation wait stack-create-complete --stack-name demo-eks-cluster
-
 CLUSTER_NAME=$(aws cloudformation describe-stacks --stack-name demo-eks-cluster \
   --query "Stacks[0].Outputs[?OutputKey=='ClusterName'].OutputValue" --output text)
+echo "Cluster name: $CLUSTER_NAME"
 
+echo "Update kubectl to use the EKS cluster"
 aws eks update-kubeconfig --name $CLUSTER_NAME
 
 echo "Check EKS cluster"

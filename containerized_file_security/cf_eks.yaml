@@ -1,27 +1,10 @@
-# aws eks update-kubeconfig --name my-eks-cluster
-# install helm: sh get_helm.sh 
-# https://trendmicro.github.io/visionone-file-security-helm/
-#kubectl create namespace visionone-filesecurity
-#kubectl create secret generic token-secret --from-literal=registration-token="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJjaWQiOiJiZTg0OTU0NS1lNjc0LTQwZjAtOTlkYy1mYjU2NWYzMjQ3NjAiLCJjcGlkIjoic3ZwIiwicHBpZCI6InNmcyIsIml0IjoxNzQ3OTE1MDY5LCJ1aWQiOiIiLCJwbCI6IntcImRvbWFpblwiOiBcImFwaS5ldS54ZHIudHJlbmRtaWNyby5jb21cIn0iLCJldCI6MTc0ODUxOTg2OSwiZGlkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwidG9rZW5Vc2UiOiJkZXZpY2UifQ.QagGcVdbq_muG1DLUC_FCTXon0QvFplbKd1DGzinEJWr_h4gvdkmR1sqpVIzgeup3YUNgHVEgA3r81qEnIxlQytSXujxfF-nC_qs5m3DZzw2pvsA9duhUdkD8TE8eEN05qZEXivcdQPvankAS9im92BeUeGyFzegSIsiCL4-9pEj2Upg2W3u0Ou5vi6bdTQYRhAefJ0EZRkulRXLNbc9sMwpDh2trfcRsoRInbcXD20WuWnXV6f0VPBOJJt-n9siu5cPAZBbpXA2Gb4gi1vVLbgXLxu6As6BU0nI3N_wgCpF4r_Eic00McK6bQvgCOihhGAmsi9M1VoH34syW4edkOd_mDydcCBUmNgreyLur5eFttyQm8GKxtvYYww3wC8OnsaHsz7uW-ApJ5ZSoMxeJiPKghdYDfSgPNp54kLf2gzpnaX4anA639xOZsLJqW-y-WMNbuRP_50AI6oIwsucDlICrPKsob1yYj47akmHRb1-CanadNeAulAjSFz40holBA5YwEWgxAshy-LeJXypOwghE3DZ6iS7QfMonG8TYGCWprcIxNBLy633ImB-lvWG2aQAT4VSyMPA20YTYeEbuYLnnr2_ceh4YDqCYuM4pQsz5SmNMmSHbuRvDLcqMF4ADoW8dwr3I11VL5HX28C-alInXWykksvEw0H1uh8-7M8" -n visionone-filesecurity
-#kubectl create secret generic device-token-secret -n visionone-filesecurity
-# helm repo add visionone-filesecurity https://trendmicro.github.io/visionone-file-security-helm/
-# helm repo update
-# curl -o public-key.asc https://trendmicro.github.io/visionone-file-security-helm/public-key.asc
-# gpg --import public-key.asc
-#gpg --export >~/.gnupg/pubring.gpg
-#helm pull --verify visionone-filesecurity/visionone-filesecurity
-#helm install my-release visionone-filesecurity/visionone-filesecurity -n visionone-filesecurity
-
-
-# <namespace>.svc.cluster.local
-#kubectl exec -it ubuntu-server -- /bin/bash
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "CloudFormation template to create an Amazon EKS Cluster with a managed node group."
 
 Parameters:
   ClusterName:
     Type: String
-    Default: my-eks-cluster
+    Default: demo-eks-cluster
     Description: "EKS Cluster Name"
 
   NodeInstanceType:
