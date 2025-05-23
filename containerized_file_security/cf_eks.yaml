@@ -1,0 +1,232 @@
+# aws eks update-kubeconfig --name my-eks-cluster
+# install helm: sh get_helm.sh 
+# https://trendmicro.github.io/visionone-file-security-helm/
+#kubectl create namespace visionone-filesecurity
+#kubectl create secret generic token-secret --from-literal=registration-token="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJjaWQiOiJiZTg0OTU0NS1lNjc0LTQwZjAtOTlkYy1mYjU2NWYzMjQ3NjAiLCJjcGlkIjoic3ZwIiwicHBpZCI6InNmcyIsIml0IjoxNzQ3OTE1MDY5LCJ1aWQiOiIiLCJwbCI6IntcImRvbWFpblwiOiBcImFwaS5ldS54ZHIudHJlbmRtaWNyby5jb21cIn0iLCJldCI6MTc0ODUxOTg2OSwiZGlkIjoiMDAwMDAwMDAtMDAwMC0wMDAwLTAwMDAtMDAwMDAwMDAwMDAwIiwidG9rZW5Vc2UiOiJkZXZpY2UifQ.QagGcVdbq_muG1DLUC_FCTXon0QvFplbKd1DGzinEJWr_h4gvdkmR1sqpVIzgeup3YUNgHVEgA3r81qEnIxlQytSXujxfF-nC_qs5m3DZzw2pvsA9duhUdkD8TE8eEN05qZEXivcdQPvankAS9im92BeUeGyFzegSIsiCL4-9pEj2Upg2W3u0Ou5vi6bdTQYRhAefJ0EZRkulRXLNbc9sMwpDh2trfcRsoRInbcXD20WuWnXV6f0VPBOJJt-n9siu5cPAZBbpXA2Gb4gi1vVLbgXLxu6As6BU0nI3N_wgCpF4r_Eic00McK6bQvgCOihhGAmsi9M1VoH34syW4edkOd_mDydcCBUmNgreyLur5eFttyQm8GKxtvYYww3wC8OnsaHsz7uW-ApJ5ZSoMxeJiPKghdYDfSgPNp54kLf2gzpnaX4anA639xOZsLJqW-y-WMNbuRP_50AI6oIwsucDlICrPKsob1yYj47akmHRb1-CanadNeAulAjSFz40holBA5YwEWgxAshy-LeJXypOwghE3DZ6iS7QfMonG8TYGCWprcIxNBLy633ImB-lvWG2aQAT4VSyMPA20YTYeEbuYLnnr2_ceh4YDqCYuM4pQsz5SmNMmSHbuRvDLcqMF4ADoW8dwr3I11VL5HX28C-alInXWykksvEw0H1uh8-7M8" -n visionone-filesecurity
+#kubectl create secret generic device-token-secret -n visionone-filesecurity
+# helm repo add visionone-filesecurity https://trendmicro.github.io/visionone-file-security-helm/
+# helm repo update
+# curl -o public-key.asc https://trendmicro.github.io/visionone-file-security-helm/public-key.asc
+# gpg --import public-key.asc
+#gpg --export >~/.gnupg/pubring.gpg
+#helm pull --verify visionone-filesecurity/visionone-filesecurity
+#helm install my-release visionone-filesecurity/visionone-filesecurity -n visionone-filesecurity
+
+
+# <namespace>.svc.cluster.local
+#kubectl exec -it ubuntu-server -- /bin/bash
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "CloudFormation template to create an Amazon EKS Cluster with a managed node group."
+
+Parameters:
+  ClusterName:
+    Type: String
+    Default: my-eks-cluster
+    Description: "EKS Cluster Name"
+
+  NodeInstanceType:
+    Type: String
+    Default: t3.medium
+    Description: "EC2 instance type for the worker nodes"
+
+  NodeGroupSize:
+    Type: Number
+    Default: 2
+    Description: "Number of worker nodes"
+
+  VpcCidr:
+    Type: String
+    Default: "10.0.0.0/16"
+    Description: "VPC CIDR block"
+
+  Subnet1Cidr:
+    Type: String
+    Default: "10.0.1.0/24"
+    Description: "CIDR for Subnet 1"
+
+  Subnet2Cidr:
+    Type: String
+    Default: "10.0.2.0/24"
+    Description: "CIDR for Subnet 2"
+
+Resources:
+
+  # VPC
+  EKSVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-VPC"
+
+  # Internet Gateway
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref EKSVpc
+      InternetGatewayId: !Ref InternetGateway
+
+  # Route Table
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref EKSVpc
+
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: "0.0.0.0/0"
+      GatewayId: !Ref InternetGateway
+
+  # Subnets
+  Subnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref EKSVpc
+      CidrBlock: !Ref Subnet1Cidr
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      Tags:
+        - Key: kubernetes.io/cluster/${ClusterName}
+          Value: owned
+        - Key: kubernetes.io/role/elb
+          Value: "1"
+
+  Subnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref EKSVpc
+      CidrBlock: !Ref Subnet2Cidr
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      Tags:
+        - Key: kubernetes.io/cluster/${ClusterName}
+          Value: owned
+        - Key: kubernetes.io/role/elb
+          Value: "1"
+
+  # Subnet Route Table Association
+  Subnet1RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet1
+      RouteTableId: !Ref PublicRouteTable
+
+  Subnet2RouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref Subnet2
+      RouteTableId: !Ref PublicRouteTable
+
+  # Security Group for EKS Cluster
+  EKSSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Allow EKS communication"
+      VpcId: !Ref EKSVpc
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 10250
+          ToPort: 10250
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  # EKS Cluster IAM Role
+  EKSClusterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: 
+                - eks.amazonaws.com
+            Action: 
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSClusterPolicy
+      Tags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-EKSRole"
+
+  # EKS Cluster
+  EKSCluster:
+    Type: AWS::EKS::Cluster
+    Properties:
+      Name: !Ref ClusterName
+      RoleArn: !GetAtt EKSClusterRole.Arn
+      ResourcesVpcConfig:
+        SubnetIds:
+          - !Ref Subnet1
+          - !Ref Subnet2
+        SecurityGroupIds:
+          - !Ref EKSSecurityGroup
+
+  # Node Group IAM Role
+  NodeInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Tags:
+        - Key: Name
+          Value: !Sub "${ClusterName}-NodeInstanceRole"
+
+  # EKS Managed Node Group
+  EKSNodeGroup:
+    Type: AWS::EKS::Nodegroup
+    DependsOn: EKSCluster
+    Properties:
+      ClusterName: !Ref ClusterName
+      NodeRole: !GetAtt NodeInstanceRole.Arn
+      Subnets:
+        - !Ref Subnet1
+        - !Ref Subnet2
+      ScalingConfig:
+        MinSize: 1
+        MaxSize: 3
+        DesiredSize: !Ref NodeGroupSize
+      InstanceTypes:
+        - !Ref NodeInstanceType
+      Tags:
+        Name: !Sub "${ClusterName}-NodeGroup"
+
+Outputs:
+  ClusterName:
+    Description: "EKS Cluster Name"
+    Value: !Ref ClusterName
+
+  ClusterArn:
+    Description: "ARN of the created EKS Cluster"
+    Value: !GetAtt EKSCluster.Arn
+
+  NodeGroupName:
+    Description: "EKS Node Group Name"
+    Value: !Ref EKSNodeGroup

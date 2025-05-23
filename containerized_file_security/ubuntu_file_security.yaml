@@ -1,0 +1,29 @@
+#
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ubuntu-server
+  labels:
+    app: ubuntu
+spec:
+  containers:
+    - name: ubuntu
+      image: ubuntu:latest
+      tty: true
+      command: ["/bin/sh", "-c"]
+      args:
+        - |
+          apt-get update && \
+          apt-get install -y curl tar && \
+          curl -L "https://tmfs-cli.fs-sdk-ue1.xdr.trendmicro.com/tmfs-cli/latest/tmfs-cli_Linux_x86_64.tar.gz" -o tmfs-cli.tar.gz && \
+          tar -xzf tmfs-cli.tar.gz && \
+          echo -n "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" > virus.com && \
+          ./tmfs scan file:./virus.com --tls=false --endpoint=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051 && \
+          echo "Packages installed. Starting loop..." && \
+          while true; do sleep 30; done
+      resources:
+        limits:
+          memory: "512Mi"
+          cpu: "500m"
+      securityContext:
+        privileged: false
