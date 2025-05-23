@@ -7,13 +7,16 @@ else
   REGISTRATION_TOKEN="$1"
 fi
 
+echo "Start logging"
+exec > >(tee -a prepare_demo.log) 2>&1
+
 echo "Create EKS cluster"
 aws cloudformation create-stack \
   --stack-name demo-eks-cluster \
   --template-body file://cf_eks.yaml \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM
 
-echo "Wait for EKS cluster to be created"
+echo "Wait for EKS cluster to be created. It can take up to 10 minutes or more"
 aws cloudformation wait stack-create-complete --stack-name demo-eks-cluster
 
 echo "Configure kubectl to use the EKS cluster"
