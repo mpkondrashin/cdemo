@@ -49,3 +49,16 @@ Run the following command:
 ```shell
 ./tmfs scan file:./virus.com --tls=false --endpoint=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051
 ```
+
+## Uninstall
+
+Initiate EKS cluster deletion on Cloud Shell:
+```shell
+aws cloudformation delete-stack --stack-name demo-eks-cluster
+```
+
+(Optional) Wait until deletion is complete:
+
+```shell
+aws cloudformation wait stack-delete-complete --stack-name demo-eks-cluster
+```
