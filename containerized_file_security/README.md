@@ -1,4 +1,4 @@
-# Containerize File Security Showcase
+# Containerized File Security Showcase
 
 This repository contains a showcase of how to containerize file security using Trend Micro VisionOne File Security.
 
