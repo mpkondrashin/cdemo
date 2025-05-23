@@ -59,7 +59,9 @@ echo "Install test pod"
 kubectl apply -f ubuntu_file_security.yaml
 
 echo "Login into the pod"
-echo "Run the following command:"
+echo "Run the following commands:"
+echo "kubectl exec -it ubuntu-server -- /bin/bash"
 echo "./tmfs scan file:./virus.com --tls=false --endpoint=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051"
-kubectl exec -it ubuntu-server -- /bin/bash
+
+echo "Demo Setup Completed. Check the README.md for more information."
 
