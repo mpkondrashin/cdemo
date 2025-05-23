@@ -62,3 +62,5 @@ aws cloudformation delete-stack --stack-name demo-eks-cluster
 ```shell
 aws cloudformation wait stack-delete-complete --stack-name demo-eks-cluster
 ```
+
+Delete ```cdemo``` folder.
