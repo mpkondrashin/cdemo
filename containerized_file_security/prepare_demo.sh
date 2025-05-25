@@ -47,7 +47,7 @@ kubectl create secret generic device-token-secret -n visionone-filesecurity
 helm repo add visionone-filesecurity https://trendmicro.github.io/visionone-file-security-helm/
 helm repo update
 curl -o public-key.asc https://trendmicro.github.io/visionone-file-security-helm/public-key.asc
-gpg --import public-key.asc
+gpg --import public-key.asc || true
 gpg --export >~/.gnupg/pubring.gpg
 helm pull --verify visionone-filesecurity/visionone-filesecurity
 helm install my-release visionone-filesecurity/visionone-filesecurity -n visionone-filesecurity
