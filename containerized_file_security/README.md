@@ -63,7 +63,10 @@ The script is waiting for EKS cluster deletion to complete. It can take up to 10
 
 ## Known Issues
 
-Token is written to prepare_demo.log file. Delete it after successfult setup
+### Token safety
+Token is written to prepare_demo.log file. Delete it after successful setup
+
+### Wrong Token Symptoms
 
 if ```kubectl get pods -n visionone-filesecurity``` returns ```my-release-visionone-filesecurity-backend-communicator-799b2g48   0/1     Init:CrashLoopBackOff   9 (119s ago)   23m```
 
