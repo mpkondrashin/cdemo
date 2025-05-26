@@ -54,18 +54,12 @@ Run the following command:
 
 ## Uninstall
 
-Initiate EKS cluster deletion on Cloud Shell:
+Run the following commands:
 ```shell
-aws cloudformation delete-stack --stack-name demo-eks-cluster
+./uninstall.sh
 ```
 
-(Optional) Wait until deletion is complete:
-
-```shell
-aws cloudformation wait stack-delete-complete --stack-name demo-eks-cluster
-```
-
-Delete the ```cdemo``` folder.
+The script is waiting for EKS cluster deletion to complete. It can take up to 10 minutes or more. Meanwhile the ```cdemo``` folder can be deleted.
 
 ## Known Issues
 
