@@ -66,8 +66,6 @@ The script is waiting for EKS cluster deletion to complete. It can take up to 10
 ### Token safety
 Token is written to prepare_demo.log file. Delete it after successful setup
 
-### Wrong Token Symptoms
+### Wrong token symptoms
 
-if ```kubectl get pods -n visionone-filesecurity``` returns ```my-release-visionone-filesecurity-backend-communicator-799b2g48   0/1     Init:CrashLoopBackOff   9 (119s ago)   23m```
-
-It could signal that your Token is invalid.
+if ```kubectl get pods -n visionone-filesecurity``` shows status ```Init:CrashLoopBackOff``` for ```my-release-visionone-filesecurity-backend-communicator``` pod, it could signal that your Token is invalid. 
