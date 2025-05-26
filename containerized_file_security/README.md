@@ -61,6 +61,12 @@ Run the following commands:
 
 The script is waiting for EKS cluster deletion to complete. It can take up to 10 minutes or more. Meanwhile the ```cdemo``` folder can be deleted.
 
+If stack deletion fails, you can delete it manually in the AWS Console:
+1. Go to CloudFormation in the AWS Console
+2. Pick the stack name ```demo-eks-cluster```.
+3. Press the "Retry delete" button.
+4. Pick "Force delete this entire stack" option if prompted.
+
 ## Known Issues
 
 ### Token safety
