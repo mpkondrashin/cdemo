@@ -66,3 +66,11 @@ aws cloudformation wait stack-delete-complete --stack-name demo-eks-cluster
 ```
 
 Delete the ```cdemo``` folder.
+
+## Known Issues
+
+Token is written to prepare_demo.log file. Delete it after successfult setup
+
+if ```kubectl get pods -n visionone-filesecurity``` returns ```my-release-visionone-filesecurity-backend-communicator-799b2g48   0/1     Init:CrashLoopBackOff   9 (119s ago)   23m```
+
+It could signal that your Token is invalid.
