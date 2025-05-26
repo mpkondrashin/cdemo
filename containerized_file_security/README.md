@@ -69,3 +69,7 @@ Token is written to prepare_demo.log file. Delete it after successful setup
 ### Wrong token symptoms
 
 if ```kubectl get pods -n visionone-filesecurity``` shows status ```Init:CrashLoopBackOff``` for ```my-release-visionone-filesecurity-backend-communicator``` pod, it could signal that your Token is invalid. 
+
+### 
+
+Only one demo can be run at a time as it creates EKS cluster with fixed name. If you want to run another demo simultaneously, you need to use another region.
