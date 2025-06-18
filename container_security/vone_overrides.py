@@ -141,7 +141,7 @@ if __name__ == '__main__':
     api_token = os.getenv('API_TOKEN')
     if not api_token:
         raise Exception('API_TOKEN environment variable is not set')
-    if sys.argv[1] == 'cleanup':
-        cleanup(api_token, sys.argv[2])
+    if os.argv[1] == 'cleanup':
+        cleanup(api_token, os.argv[2])
     else:
-        setup(api_token, sys.argv[2])
+        setup(api_token, os.argv[2])
