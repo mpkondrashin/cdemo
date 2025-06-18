@@ -3,10 +3,17 @@ set -e
 set -x
 
 if [ -z "$1" ]; then
+  read -p "Enter the Region: " REGION
+else
+  REGION="$1"
+fi
+
+if [ -z "$2" ]; then
   read -p "Enter the API token: " API_TOKEN
 else
-  API_TOKEN="$1"
+  API_TOKEN="$2"
 fi
+
 
 echo "[CDEMO] Start logging"
 exec > >(tee -a prepare_cs_demo.log) 2>&1
@@ -43,7 +50,7 @@ echo "[CDEMO] Install Python"
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-API_TOKEN=$API_TOKEN python3 vone_overrides.py
+API_TOKEN=$API_TOKEN python3 vone_overrides.py setup $REGION
 
 echo "[CDEMO] Install Container Security ()"
 helm install \
