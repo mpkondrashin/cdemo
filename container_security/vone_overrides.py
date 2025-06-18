@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import requests
 import os
+import sys
 import yaml
 
 
@@ -11,10 +12,10 @@ class VOne:
             self.url_base = f'https://api.{region}.xdr.trendmicro.com'
         self.token = token
     
-    def request(self, method, url_path, params = None, headers = None):
+    def request(self, method, url_path, params = None, headers = None, body = None):
         headers = headers or {}
         headers['Authorization'] = 'Bearer ' + self.token
-        r = requests.request(method, url_path, params=params, headers=headers)
+        r = requests.request(method, url_path, params=params, headers=headers, json=body)
         if r.status_code >= 300:
             raise Exception(f'Error: {r.status_code}: {r.text}')
         
@@ -23,7 +24,7 @@ class VOne:
         
         if not len(r.content):
             return None
-            
+    
         return r.json()
 
     def get_k8s_clusters(self, filter = ''):
@@ -36,12 +37,11 @@ class VOne:
             query_params['TMV1-Filter'] = filter
         while True:
             r = self.request('GET', url_path, params=query_params)
-            data = r.json()
-            for cluster in data['items']:
+            for cluster in r['items']:
                 yield cluster
                 
-            if 'nextLink' in data and data['nextLink']:
-                url_path = data['nextLink']
+            if 'nextLink' in r and r['nextLink']:
+                url_path = r['nextLink']
             else:
                 break
     
@@ -52,9 +52,8 @@ class VOne:
             'groupId': group_id,
             'description': description,
         }   
-        r = self.request('POST', url_path, json=body)
-        data = r.json()
-        return data['apiKey'], data['endpointUrl']
+        r = self.request('POST', url_path, body=body)
+        return r['apiKey'], r['endpointUrl']
 
     def iterate_cluster_groups(self, filter = ''):
         url_path = self.url_base +'/v3.0/containerSecurity/kubernetesClusterGroups'
@@ -64,8 +63,7 @@ class VOne:
         if filter:
             query_params['TMV1-Filter'] = filter
         r = self.request('GET', url_path, params=query_params)
-        data = r.json()
-        for cluster_group in data['items']:
+        for cluster_group in r['items']:
             yield cluster_group
 
     def get_cluster_group(self, name):
@@ -141,7 +139,11 @@ if __name__ == '__main__':
     api_token = os.getenv('API_TOKEN')
     if not api_token:
         raise Exception('API_TOKEN environment variable is not set')
-    if os.argv[1] == 'cleanup':
-        cleanup(api_token, os.argv[2])
+    if len(sys.argv) < 2:
+        raise Exception('Usage: python vone_overrides.py <cleanup|setup> <region>')
+    if sys.argv[1] == 'cleanup':
+        cleanup(api_token, sys.argv[2])
+    elif sys.argv[1] == 'setup':
+        setup(api_token, sys.argv[2])
     else:
-        setup(api_token, os.argv[2])
+        raise Exception('Unknown command')
