@@ -43,7 +43,7 @@ echo "[CDEMO] Install Python"
 python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
-API_TOKEN=$API_TOKEN python3 protect_k8s.py
+API_TOKEN=$API_TOKEN python3 vone_overrides.py
 
 echo "[CDEMO] Install Container Security ()"
 helm install \
