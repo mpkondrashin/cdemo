@@ -127,6 +127,8 @@ def setup(token, region = ''):
     if not aws_eks_group:
         raise Exception('Amazon EKS cluster group not found')
     group_id = aws_eks_group['id']
+    print(f"[CDEMO] Group ID: {group_id}")
+    print("[CDEMO] Registering cluster")
     api_key, endpoint_url = vone.register_k8s_cluster('demo_eks_cluster', 'Demo', group_id)
     print(f"[CDEMO] API Key: {api_key}")
     print(f"[CDEMO] Endpoint URL: {endpoint_url}")
