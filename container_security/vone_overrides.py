@@ -15,6 +15,7 @@ class VOne:
     def request(self, method, url_path, params = None, headers = None, body = None):
         headers = headers or {}
         headers['Authorization'] = 'Bearer ' + self.token
+        #print(f"[CDEMO] Request: {method} {url_path} {params} {headers} {body}")
         r = requests.request(method, url_path, params=params, headers=headers, json=body)
         if r.status_code >= 300:
             raise Exception(f'Error: {r.status_code}: {r.text}')
@@ -33,10 +34,11 @@ class VOne:
             'top': '100',
             'orderBy': 'createdDateTime desc'
         }
+        headers = None  
         if filter:
-            query_params['TMV1-Filter'] = filter
+            headers = {'TMV1-Filter': filter}
         while True:
-            r = self.request('GET', url_path, params=query_params)
+            r = self.request('GET', url_path, params=query_params, headers=headers)
             for cluster in r['items']:
                 yield cluster
                 
@@ -60,14 +62,15 @@ class VOne:
         query_params = {
             'top': '100',
         }
+        headers = None
         if filter:
-            query_params['TMV1-Filter'] = filter
-        r = self.request('GET', url_path, params=query_params)
+            headers = {'TMV1-Filter': filter}
+        r = self.request('GET', url_path, params=query_params, headers=headers)
         for cluster_group in r['items']:
             yield cluster_group
 
     def get_cluster_group(self, name):
-        filter = f"name eq '{name}'"
+        filter = f"orchestrator eq '{name}'"
         for cluster_group in self.iterate_cluster_groups(filter):
             return cluster_group
     
@@ -123,9 +126,10 @@ def setup(token, region = ''):
     print("[CDEMO] Getting cluster groups")
     for group in vone.iterate_cluster_groups():
         print(f"[CDEMO] {group['name']}: {group['id']}")
-    aws_eks_group = vone.get_cluster_group('Amazon EKS')
+    cluster_group = 'Amazon EKS'
+    aws_eks_group = vone.get_cluster_group(cluster_group)
     if not aws_eks_group:
-        raise Exception('Amazon EKS cluster group not found')
+        raise Exception(f'{cluster_group} cluster group not found')
     group_id = aws_eks_group['id']
     print(f"[CDEMO] Group ID: {group_id}")
     print("[CDEMO] Registering cluster")
