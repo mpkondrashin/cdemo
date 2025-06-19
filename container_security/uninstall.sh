@@ -36,9 +36,9 @@ echo "[CDEMO] Remove Helm chart and GPG key"
 rm -f get_helm.sh
 
 echo "[CDEMO] Delete EKS cluster and CloudFormation stack"
-aws cloudformation delete-stack --stack-name demo-eks-cluster
+aws cloudformation delete-stack --stack-name csdemo-eks-cluster
 
 echo "[CDEMO] Wait for stack deletion to complete"
-aws cloudformation wait stack-delete-complete --stack-name demo-eks-cluster
+aws cloudformation wait stack-delete-complete --stack-name csdemo-eks-cluster
 
 echo "[CDEMO] Uninstallation completed"
