@@ -21,7 +21,7 @@ sudo bash
 cd /root
 ```
 
-## Artifact Scanner
+## Artifact Scanner (TMAS) Demo
 
 Get API Key from Vison One and run the following command:
 ```shell
@@ -72,4 +72,40 @@ Run the following command
 Run the following command
 ```shell
 ./tmas scan folder:libraries -VS --region=eu-central-1 
+```
+
+## File Scanner (TMFS) Demo 
+
+Get API Key from Vison One (or use the same on as for TMAS) and run the following command:
+```shell
+export TMFS_API_KEY=your_api_key
+```
+
+### Showcase file scan
+
+Run the following command
+```shell
+ ./tmfs scan file:./virus.com --region=eu-central-1 
+ ```
+
+For malicious file you will get the following output:
+```json
+{
+    "scannerVersion":"1.0.0-173",
+    "schemaVersion":"1.0.0",
+    "scanResult":1,
+    "scanId":"84bcd5a3-ac24-4cc5-874c-78f2ca663e07",
+    "scanTimestamp":"2025-09-02T17:22:48.927Z",
+    "fileName":"./virus.com",
+    "foundMalwares":[{"fileName":"virus.com","malwareName":"Eicar_test_file"}],
+    "fileSHA1":"cf8bd9dfddff007f75adf4c2be48005cea317c62",
+    "fileSHA256":"131f95c51cc819465fa1797f6ccacf9d494aaaff46fa3eac73ae63ffbdfd8267"
+}
+```
+
+### Showcase folder scan
+
+Run the following command
+```shell
+./tmfs scan dir:./libraries --region=eu-central-1 
 ```
