@@ -2,7 +2,13 @@
 
 ## Setup
 
-Go to AWS CloudFormation and upload ```file_security.yaml``` template.
+Go to AWS CloudFormation and run the following command:
+```shell
+    git clone https://github.com/mpkondrashin/cdemo.git
+    cd cdemo/file_security
+```
+
+Upload ```file_security.yaml``` template using CloudFormation.
 
 Required parameters:
 - KeyName: Name of an existing EC2 KeyPair to enable SSH access
