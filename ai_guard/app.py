@@ -4,6 +4,8 @@ import sys, subprocess
 
 app = Flask(__name__)
 
+MCP_SERVER_CMD = ["python3", "mcp_server.py"]
+
 def mcp_request(payload):
     """Один запрос к MCP серверу"""
     proc = subprocess.Popen(
