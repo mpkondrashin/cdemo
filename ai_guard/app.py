@@ -37,17 +37,17 @@ def call_tool(name, args):
         "params": {"name": name, "arguments": args}
     })
 
-def ask_model(prompt, extra_context=""):
-    """Вызов модели с добавлением данных из MCP"""
+def ask_model(model_id, prompt, extra_context=""):
     payload = {
-        "model": MODEL_ID,
+        "model": model_id,
         "prompt": f"{extra_context}\nUser: {prompt}\nAssistant:",
         "max_tokens": 200,
         "temperature": 0.7
     }
     r = requests.post(LOCALAI_BASE + "/v1/completions", json=payload, timeout=60)
+    r.raise_for_status()
     data = r.json()
-    return data["choices"][0]["text"]
+    return data["choices"][0].get("text") or json.dumps(data)
 
 
 TEMPLATE = """
@@ -125,30 +125,35 @@ def get_model_id():
 
 @app.route("/", methods=["GET","POST"])
 def chat():
-    response_text = None
-    error = None
+    error=None
+    response_text=None
+    model_id = get_model_id()
     if request.method == "POST":
-        user_prompt = request.form.get("prompt","")
+        prompt = request.form.get("prompt","")
 
-        # 🔹 шаг 1: спросим у модели, нужно ли вызвать инструмент
-        hint = ask_model(
-            f"You have tools {list_tools()}. "
-            f"If use asks for data from file system, pick tool and JSON parameters выбери. "
-            f"Otherwise write 'none'.\n\Question: {user_prompt}\Reply:"
-        )
-
-        if "none" not in hint.lower():
-            try:
-                decision = json.loads(hint)  # {"tool":"list_files"} или {"tool":"read_file","args":{"filename":"x"}}
-                tool = decision["tool"]
-                args = decision.get("args", {})
-                tool_result = call_tool(tool, args)
-                # контекст для модели
-                response_text = ask_model(user_prompt, extra_context=f"Результат инструмента {tool}: {tool_result}")
-            except Exception as e:
-                error = f"Ошибка разбора JSON из LLM: {hint} ({e})"
+        if not model_id:
+            error = "Model not ready yet. Please wait and try again."
         else:
-            response_text = ask_model(user_prompt)
+            hint = ask_model(
+                model_id,
+                f"You have tools {list_tools()}. "
+                f"If use asks for data from file system, pick tool and JSON parameters выбери. "
+                f"Otherwise write 'none'.\n\Question: {prompt}\Reply:"
+            )
+            if "none" not in hint.lower():
+                try:
+                    decision = json.loads(hint)
+                    tool = decision["tool"]
+                    args = decision.get("args", {})
+                    tool_result = call_tool(tool, args)
+                    # контекст для модели
+                    response_text = ask_model(model_id, user_prompt, extra_context=f"Результат инструмента {tool}: {tool_result}")
+                except Exception as e:
+                    error = f"Ошибка разбора JSON из LLM: {hint} ({e})"
+            else:
+                response_text = ask_model(model_id, user_prompt)
+
+    return render_template_string(TEMPLATE, response=response_text, error=error, model_id=model_id)
 
 
 @app.route("/prev", methods=["GET","POST"])
