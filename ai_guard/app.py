@@ -140,7 +140,7 @@ def chat():
             hint = ask_model(
                 model_id,
                 f"You have tools {list_tools()}. "
-                f"If user asks for data from file system, pick tool and reply with JSON request."
+                f"If user asks for data from one of the tools, pick tool and reply with JSON request."
                 f"Otherwise write 'none'.\nQuestion: {prompt}\nReply:"
             )
             print("HINT:\n",hint)
