@@ -150,12 +150,12 @@ def chat():
                     args = decision.get("args", {})
                     tool_result = call_tool(tool, args)
                     # контекст для модели
-                    response_text = ask_model(model_id, user_prompt, extra_context=f"Результат инструмента {tool}: {tool_result}")
+                    response_text = ask_model(model_id, prompt, extra_context=f"Результат инструмента {tool}: {tool_result}")
                 except Exception as e:
                     error = f"Ошибка разбора JSON из LLM: {hint} ({e})"
                     raise
             else:
-                response_text = ask_model(model_id, user_prompt)
+                response_text = ask_model(model_id, prompt)
 
     return render_template_string(TEMPLATE, response=response_text, error=error, model_id=model_id)
 
