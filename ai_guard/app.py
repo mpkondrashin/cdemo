@@ -152,6 +152,7 @@ def chat():
                     response_text = ask_model(model_id, user_prompt, extra_context=f"Результат инструмента {tool}: {tool_result}")
                 except Exception as e:
                     error = f"Ошибка разбора JSON из LLM: {hint} ({e})"
+                    raise
             else:
                 response_text = ask_model(model_id, user_prompt)
 
