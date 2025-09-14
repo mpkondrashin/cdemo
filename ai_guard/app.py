@@ -2,31 +2,53 @@ from flask import Flask, request, render_template_string
 import requests, json, time
 import sys, subprocess
 
-def call_mcp(payload):
-    """Запускаем MCP-сервер и передаем ему JSON через stdin"""
-    try:
-        # subprocess для запуска нашего mcp_server.py
-        proc = subprocess.Popen(
-            ["python3", "mcp_server.py"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        out, err = proc.communicate(json.dumps(payload) + "\n", timeout=10)
-        # MCP может вернуть несколько строк → берём последнюю валидную JSON
-        for line in out.strip().splitlines()[::-1]:
-            try:
-                return json.loads(line)
-            except:
-                continue
-        return {"error": "No valid JSON from MCP", "raw": out, "stderr": err}
-    except Exception as e:
-        return {"error": str(e)}
-
-
-
 app = Flask(__name__)
+
+def mcp_request(payload):
+    """Один запрос к MCP серверу"""
+    proc = subprocess.Popen(
+        MCP_SERVER_CMD,
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+    )
+    out, err = proc.communicate(json.dumps(payload) + "\n", timeout=10)
+    # Берём последнюю строку, которая является JSON
+    for line in out.strip().splitlines()[::-1]:
+        try:
+            return json.loads(line)
+        except:
+            continue
+    return {"error": "Invalid MCP response", "stdout": out, "stderr": err}
+
+def list_tools():
+    return mcp_request({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/list"
+    })
+
+def call_tool(name, args):
+    return mcp_request({
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "tools/call",
+        "params": {"name": name, "arguments": args}
+    })
+
+def ask_model(prompt, extra_context=""):
+    """Вызов модели с добавлением данных из MCP"""
+    payload = {
+        "model": MODEL_ID,
+        "prompt": f"{extra_context}\nUser: {prompt}\nAssistant:",
+        "max_tokens": 200,
+        "temperature": 0.7
+    }
+    r = requests.post(LOCALAI_BASE + "/v1/completions", json=payload, timeout=60)
+    data = r.json()
+    return data["choices"][0]["text"]
+
 
 TEMPLATE = """
 <!doctype html>
@@ -103,6 +125,34 @@ def get_model_id():
 
 @app.route("/", methods=["GET","POST"])
 def chat():
+    response_text = None
+    error = None
+    if request.method == "POST":
+        user_prompt = request.form.get("prompt","")
+
+        # 🔹 шаг 1: спросим у модели, нужно ли вызвать инструмент
+        hint = ask_model(
+            f"You have tools {list_tools()}. "
+            f"If use asks for data from file system, pick tool and JSON parameters выбери. "
+            f"Otherwise write 'none'.\n\Question: {user_prompt}\Reply:"
+        )
+
+        if "none" not in hint.lower():
+            try:
+                decision = json.loads(hint)  # {"tool":"list_files"} или {"tool":"read_file","args":{"filename":"x"}}
+                tool = decision["tool"]
+                args = decision.get("args", {})
+                tool_result = call_tool(tool, args)
+                # контекст для модели
+                response_text = ask_model(user_prompt, extra_context=f"Результат инструмента {tool}: {tool_result}")
+            except Exception as e:
+                error = f"Ошибка разбора JSON из LLM: {hint} ({e})"
+        else:
+            response_text = ask_model(user_prompt)
+
+
+@app.route("/prev", methods=["GET","POST"])
+def chat_prev():
     error=None
     response_text=None
     model_id = get_model_id()
