@@ -142,6 +142,7 @@ def chat():
                 f"If use asks for data from file system, pick tool and JSON parameters выбери. "
                 f"Otherwise write 'none'.\n\Question: {prompt}\Reply:"
             )
+            print(hint)
             if "none" not in hint.lower():
                 try:
                     decision = json.loads(hint)
