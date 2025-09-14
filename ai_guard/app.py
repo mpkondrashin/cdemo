@@ -40,6 +40,7 @@ def call_tool(name, args):
     })
 
 def ask_model(model_id, prompt, extra_context=""):
+    print("ASK MODEL\n",prompt)
     payload = {
         "model": model_id,
         "prompt": f"{extra_context}\nUser: {prompt}\nAssistant:",
@@ -139,17 +140,16 @@ def chat():
             hint = ask_model(
                 model_id,
                 f"You have tools {list_tools()}. "
-                f"If use asks for data from file system, pick tool and JSON parameters выбери. "
-                f"Otherwise write 'none'.\n\Question: {prompt}\Reply:"
+                f"If user asks for data from file system, pick tool and reply with JSON request."
+                f"Otherwise write 'none'.\nQuestion: {prompt}\nReply:"
             )
-            print(hint)
+            print("HINT:\n",hint)
             if "none" not in hint.lower():
                 try:
                     decision = json.loads(hint)
                     tool = decision["tool"]
                     args = decision.get("args", {})
                     tool_result = call_tool(tool, args)
-                    # контекст для модели
                     response_text = ask_model(model_id, prompt, extra_context=f"Результат инструмента {tool}: {tool_result}")
                 except Exception as e:
                     error = f"Ошибка разбора JSON из LLM: {hint} ({e})"
