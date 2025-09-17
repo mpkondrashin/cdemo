@@ -108,6 +108,12 @@ Resources:
       SecurityGroupIds:
         - !Ref SecurityGroup
       ImageId: !Ref LatestUbuntuAmi
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 30
+            VolumeType: gp3
+            DeleteOnTermination: true
       Tags:
         - Key: Name
           Value: Ubuntu-SSH-Instance
@@ -153,11 +159,11 @@ Resources:
           mkdir -p /root/libraries
           cp $(find /usr/lib/ -name '*so') /root/libraries || true
 
-          echo "USERDATA END $(date)"
           git clone https://github.com/mpkondrashin/cdemo.git
           cd cdemo/file_security/fscan
           ./get_latest_go.sh
 
+          echo "USERDATA END $(date)"
           #cd ../pyscan
           #python3 -m venv venv
           #source venv/bin/activate

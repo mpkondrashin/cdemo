@@ -29,6 +29,12 @@ sudo bash
 cd /root
 ```
 
+Run the following command to make sure that UserData script finished running:
+```shell
+tail -f /var/log/user-data.log
+```
+
+
 ## Artifact Scanner (TMAS) Demo
 
 Get API Key from Vison One and run the following command:
