@@ -156,8 +156,11 @@ Resources:
           echo "USERDATA END $(date)"
           git clone https://github.com/mpkondrashin/cdemo.git
           cd cdemo/file_security/fscan
-          apt install golang-go -y
+          ./get_latest_go.sh
+          source /etc/profile.d/go.sh
+          go build
           
+
           
 Outputs:
   VPCId:
