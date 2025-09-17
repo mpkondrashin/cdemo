@@ -23,6 +23,10 @@ Parameters:
     AllowedPattern: "(\\d{1,3}\\.){3}\\d{1,3}/\\d{1,2}"
     ConstraintDescription: must be a valid CIDR range of the form x.x.x.x/x.
 
+  LatestUbuntuAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id
+
 Resources:
   # --- Networking ---
   VPC:
@@ -81,7 +85,6 @@ Resources:
       SubnetId: !Ref PublicSubnet
       RouteTableId: !Ref RouteTable
 
-  # --- Security ---
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -96,7 +99,6 @@ Resources:
         - Key: Name
           Value: MyUbuntuSG
 
-  # --- EC2 ---
   EC2Instance:
     Type: AWS::EC2::Instance
     Properties:
@@ -105,13 +107,17 @@ Resources:
       SubnetId: !Ref PublicSubnet
       SecurityGroupIds:
         - !Ref SecurityGroup
-      ImageId: ami-0360c520857e3138f
+      ImageId: !Ref LatestUbuntuAmi
       Tags:
         - Key: Name
           Value: Ubuntu-SSH-Instance
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
+          set -xe
+          exec > >(tee -a /var/log/user-data.log) 2>&1
+          echo "USERDATA START $(date)"
+
           cd /root
 
           # Update and install docker
@@ -147,6 +153,12 @@ Resources:
           mkdir -p /root/libraries
           cp $(find /usr/lib/ -name '*so') /root/libraries
 
+          echo "USERDATA END $(date)"
+          git clone https://github.com/mpkondrashin/cdemo.git
+          cd cdemo/file_security/fscan
+          apt install golang-go -y
+          
+          
 Outputs:
   VPCId:
     Description: VPC Id
