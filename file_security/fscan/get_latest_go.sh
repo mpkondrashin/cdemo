@@ -1,3 +1,4 @@
+#!/bin/sh
 curl -fsSL https://go.dev/dl/ | grep -oP 'go[0-9]+\.[0-9]+\.[0-9]+\.linux-amd64\.tar\.gz' | head -n1 | xargs -I {} sh -c '
   cd /tmp &&
   curl -LO https://go.dev/dl/{} &&
