@@ -21,7 +21,9 @@ curl ifconfig.me
 ```
 or use ```https://www.myip.com/```.
 
-After the CloudFormation template finishes running, log in to the EC2 instance and run the following command:
+After the CloudFormation template finishes running check its output to get the public IP address of the newly created EC2 instance.
+
+Log into the EC2 instance and run the following command:
 ```shell
 sudo bash
 cd /root
@@ -118,8 +120,10 @@ Run the following command
 
 ### Showcase SDK
 
-go to ```/root/cdemo/file_security/fscan``` and run the following command:
+go to ```/root/cdemo/file_security/fscan``` and run the following commands:
 ```shell
+source /etc/profile.d/go.sh
+go build
 ./fscan
 ```
 

@@ -151,14 +151,17 @@ Resources:
           curl -O https://github.com/openssl/openssl/releases/download/OpenSSL-engine-0_9_6/openssl-engine-0.9.6.tar.gz
           
           mkdir -p /root/libraries
-          cp $(find /usr/lib/ -name '*so') /root/libraries
+          cp $(find /usr/lib/ -name '*so') /root/libraries || true
 
           echo "USERDATA END $(date)"
           git clone https://github.com/mpkondrashin/cdemo.git
           cd cdemo/file_security/fscan
           ./get_latest_go.sh
-          source /etc/profile.d/go.sh
-          go build
+
+          #cd ../pyscan
+          #python3 -m venv venv
+          #source venv/bin/activate
+          #python3 -m pip install -r requirements.txt
           
 
           
