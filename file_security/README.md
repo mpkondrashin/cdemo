@@ -115,3 +115,14 @@ Run the following command
 ```shell
 ./tmfs scan dir:./libraries --region=eu-central-1 
 ```
+
+### Showcase SDK
+
+go to ```/root/cdemo/file_scan/fscan``` and run the following command:
+```shell
+./fscan
+```
+
+Source code is in the file main.go
+
+
