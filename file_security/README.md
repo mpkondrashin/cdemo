@@ -135,4 +135,10 @@ go build
 
 Source code is in the file main.go
 
+Run the follwoing commands to show scanning:
+```shell
+./fscan --filename eicar.com --region=eu-central-1
+./fscan --filename fscan --region=eu-central-1
+```
 
+First one symulates to scan malicious file. Second one scans itself (nonmalicious).
