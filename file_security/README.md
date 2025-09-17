@@ -118,7 +118,7 @@ Run the following command
 
 ### Showcase SDK
 
-go to ```/root/cdemo/file_scan/fscan``` and run the following command:
+go to ```/root/cdemo/file_security/fscan``` and run the following command:
 ```shell
 ./fscan
 ```
