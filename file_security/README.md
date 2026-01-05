@@ -126,7 +126,7 @@ Run the following command
 
 ### Showcase SDK
 
-go to ```/root/cdemo/file_security/fscan``` and run the following commands:
+Go to ```/root/cdemo/file_security/fscan``` and run the following commands:
 ```shell
 source /etc/profile.d/go.sh
 go build
@@ -135,10 +135,10 @@ go build
 
 Source code is in the file main.go
 
-Run the follwoing commands to show scanning:
+Run the following commands to show scanning:
 ```shell
 ./fscan --filename eicar.com --region=eu-central-1
 ./fscan --filename fscan --region=eu-central-1
 ```
 
-First one symulates to scan malicious file. Second one scans itself (nonmalicious).
+First one symulates to scan a malicious file. Second one scans itself (nonmalicious).

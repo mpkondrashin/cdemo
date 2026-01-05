@@ -18,6 +18,12 @@ spec:
           tar -xzf tmfs-cli.tar.gz && \
           echo -n "X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*" > virus.com && \
           ./tmfs scan file:./virus.com --tls=false --endpoint=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051 && \
+          apt update && apt upgrade -y && \
+          apt install golang-go git -y && \
+          git clone https://github.com/mpkondrashin/cdemo && \
+          cd cdemo/containerized_file_security/fscan && \
+          go build && \
+          ./fscan  --tls=false --address=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051" virus.com && \
           echo "Packages installed. Starting loop..." && \
           while true; do sleep 30; done
       resources:

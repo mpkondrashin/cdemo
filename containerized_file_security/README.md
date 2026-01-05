@@ -52,6 +52,16 @@ Run the following command:
 ./tmfs scan file:./virus.com --tls=false --endpoint=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051
 ```
 
+Possible demo for SDK(?):
+```shell
+apt update
+apt update -y
+apt install python3-pip python3.12-venv -y
+python3 -m venv venv
+source venv/bin/activate
+pip install visionone-filesecurity
+```
+
 ## Uninstall
 
 Run the following commands:
