@@ -23,7 +23,7 @@ spec:
           git clone https://github.com/mpkondrashin/cdemo && \
           cd cdemo/containerized_file_security/fscan && \
           go build && \
-          #./fscan  --tls=false --address=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051" virus.com && \
+          #./fscan  --tls=false --address=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051 virus.com && \
           echo "Packages installed. Starting loop..." && \
           while true; do sleep 30; done
       resources:

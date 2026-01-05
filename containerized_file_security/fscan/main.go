@@ -37,6 +37,7 @@ var (
 	address   = flag.String("address", "", "File Security address")
 	ignoreTLS = flag.Bool("tls", true, "Ignore TLS errros")
 	cert      = flag.String("cert", "", "Certificate filepath")
+	pml       = flag.Bool("pml", false, "Use Predictive Machine Learning")
 )
 
 func ScanFile(client *fileSecurity.AmaasClient, filePath string) {
@@ -76,8 +77,17 @@ func main() {
 		log.Fatalf("NewClientInternal: %v", err)
 	}
 	defer client.Destroy()
-	client.SetPMLEnable()
+	if *pml {
+		client.SetPMLEnable()
+		log.Println("PML enabled")
+	} else {
+		log.Println("PML disabled")
+	}
+	log.Printf("Scanning %d files", len(flag.Args()))
 	for _, filePath := range flag.Args() {
+		log.Printf("Scanning file: %s", filePath)
 		ScanFile(client, filePath)
 	}
+	log.Println("Scan complete")
+	log.Printf("Finished scanning %d files", len(flag.Args()))
 }
