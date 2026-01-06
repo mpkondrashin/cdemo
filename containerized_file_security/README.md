@@ -52,14 +52,14 @@ Run the following command:
 ./tmfs scan file:./virus.com --tls=false --endpoint=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051
 ```
 
-Possible demo for SDK(?):
+Demo for SDK
 ```shell
-apt update
-apt update -y
-apt install python3-pip python3.12-venv -y
-python3 -m venv venv
-source venv/bin/activate
-pip install visionone-filesecurity
+apt update && apt upgrade -y # This should be already implemented
+apt install golang-go git -y # This should be already implemented
+git clone https://github.com/mpkondrashin/cdemo # This should be already implemented
+cd cdemo/containerized_file_security/fscan # This should be already implemented
+go build # This should be already implemented
+./fscan --address=my-release-visionone-filesecurity-scanner.visionone-filesecurity.svc.cluster.local:50051 virus.com
 ```
 
 ## Uninstall
