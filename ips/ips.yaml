@@ -1,0 +1,722 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  One-off IPS demo lab (partner/vendor rules): VPC with Internet, AWS Network Firewall in-path,
+  Attacker(AL2023) and Victim(Windows) in separate private subnets with symmetric routing via NFW,
+  CloudWatch FLOW/ALERT logs, S3 PCAP bucket that auto-empties on stack delete, and attacker replay script
+  (tcprewrite on-the-fly + optional pcaps.zip cache).
+
+Parameters:
+  VpcCidr:
+    Type: String
+    Default: 10.10.0.0/16
+
+  PublicSubnetCidr:
+    Type: String
+    Default: 10.10.0.0/24
+
+  FirewallSubnetCidr:
+    Type: String
+    Default: 10.10.30.0/24
+
+  AttackerSubnetCidr:
+    Type: String
+    Default: 10.10.10.0/24
+
+  VictimSubnetCidr:
+    Type: String
+    Default: 10.10.20.0/24
+
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    AllowedValues: [t3.small, t3.medium, t3.large, t3a.small, t3a.medium, t3a.large]
+
+  # Optional: If you upload a single zip archive to S3 (e.g. pcaps.zip), set its key here.
+  # The attacker script can download s3://<bucket>/<key>, cache it locally, delete it from S3, unzip, and replay.
+  PcapsZipKey:
+    Type: String
+    Default: pcaps.zip
+
+Resources:
+  # -----------------------------
+  # VPC + IGW
+  # -----------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidr
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: ips-demo-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: ips-demo-igw
+
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # -----------------------------
+  # Subnets (single AZ for simplicity)
+  # -----------------------------
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref PublicSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: ips-demo-public
+
+  FirewallSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref FirewallSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: ips-demo-firewall
+
+  AttackerSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref AttackerSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: ips-demo-attacker
+
+  VictimSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: !Ref VictimSubnetCidr
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: ips-demo-victim
+
+  # -----------------------------
+  # Route tables
+  # -----------------------------
+  PublicRt:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ips-demo-rt-public
+
+  PublicRtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRt
+
+  PublicDefaultRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRt
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  FirewallRt:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ips-demo-rt-firewall
+
+  FirewallRtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref FirewallSubnet
+      RouteTableId: !Ref FirewallRt
+
+  AttackerRt:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ips-demo-rt-attacker
+
+  AttackerRtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref AttackerSubnet
+      RouteTableId: !Ref AttackerRt
+
+  VictimRt:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: ips-demo-rt-victim
+
+  VictimRtAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref VictimSubnet
+      RouteTableId: !Ref VictimRt
+
+  # -----------------------------
+  # NAT Gateway (public subnet)
+  # -----------------------------
+  NatEip:
+    Type: AWS::EC2::EIP
+    DependsOn: AttachGateway
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatEip.AllocationId
+      SubnetId: !Ref PublicSubnet
+      Tags:
+        - Key: Name
+          Value: ips-demo-nat
+
+  # -----------------------------
+  # Network Firewall (policy starts with no rule groups; you add partner/vendor managed rule groups manually)
+  # -----------------------------
+  FirewallPolicy:
+    Type: AWS::NetworkFirewall::FirewallPolicy
+    Properties:
+      FirewallPolicyName: !Sub "ips-demo-policy-${AWS::StackName}"
+      FirewallPolicy:
+        StatelessDefaultActions:
+          - aws:forward_to_sfe
+        StatelessFragmentDefaultActions:
+          - aws:forward_to_sfe
+
+  NetworkFirewall:
+    Type: AWS::NetworkFirewall::Firewall
+    Properties:
+      FirewallName: !Sub "ips-demo-fw-${AWS::StackName}"
+      VpcId: !Ref VPC
+      FirewallPolicyArn: !Ref FirewallPolicy
+      SubnetMappings:
+        - SubnetId: !Ref FirewallSubnet
+      DeleteProtection: false
+      FirewallPolicyChangeProtection: false
+      SubnetChangeProtection: false
+
+  # Extract vpce-... from "az:vpce-..."
+  FirewallEndpointIdParam:
+    Type: AWS::SSM::Parameter
+    DependsOn: NetworkFirewall
+    Properties:
+      Name: !Sub "/ips-demo/${AWS::StackName}/firewall-endpoint-id"
+      Type: String
+      Value: !Select
+        - 1
+        - !Split
+          - ":"
+          - !Select [0, !GetAtt NetworkFirewall.EndpointIds]
+
+  # Egress: Attacker/Victim default route -> NFW endpoint
+  AttackerDefaultRouteToFW:
+    Type: AWS::EC2::Route
+    DependsOn: FirewallEndpointIdParam
+    Properties:
+      RouteTableId: !Ref AttackerRt
+      DestinationCidrBlock: 0.0.0.0/0
+      VpcEndpointId: !GetAtt FirewallEndpointIdParam.Value
+
+  VictimDefaultRouteToFW:
+    Type: AWS::EC2::Route
+    DependsOn: FirewallEndpointIdParam
+    Properties:
+      RouteTableId: !Ref VictimRt
+      DestinationCidrBlock: 0.0.0.0/0
+      VpcEndpointId: !GetAtt FirewallEndpointIdParam.Value
+
+  # East-West: Attacker <-> Victim via NFW endpoint (symmetric routing)
+  RouteAttackerToVictimViaFW:
+    Type: AWS::EC2::Route
+    DependsOn: FirewallEndpointIdParam
+    Properties:
+      RouteTableId: !Ref AttackerRt
+      DestinationCidrBlock: !Ref VictimSubnetCidr
+      VpcEndpointId: !GetAtt FirewallEndpointIdParam.Value
+
+  RouteVictimToAttackerViaFW:
+    Type: AWS::EC2::Route
+    DependsOn: FirewallEndpointIdParam
+    Properties:
+      RouteTableId: !Ref VictimRt
+      DestinationCidrBlock: !Ref AttackerSubnetCidr
+      VpcEndpointId: !GetAtt FirewallEndpointIdParam.Value
+
+  # Firewall subnet default route -> NAT -> IGW
+  FirewallDefaultRouteToNat:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref FirewallRt
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  # -----------------------------
+  # Network Firewall logging -> CloudWatch Logs
+  # -----------------------------
+  NfwAlertLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/network-firewall/${AWS::StackName}/alert"
+      RetentionInDays: 3
+
+  NfwFlowLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/network-firewall/${AWS::StackName}/flow"
+      RetentionInDays: 3
+
+  NfwLogging:
+    Type: AWS::NetworkFirewall::LoggingConfiguration
+    Properties:
+      FirewallArn: !Ref NetworkFirewall
+      LoggingConfiguration:
+        LogDestinationConfigs:
+          - LogType: ALERT
+            LogDestinationType: CloudWatchLogs
+            LogDestination:
+              logGroup: !Ref NfwAlertLogGroup
+          - LogType: FLOW
+            LogDestinationType: CloudWatchLogs
+            LogDestination:
+              logGroup: !Ref NfwFlowLogGroup
+
+  # -----------------------------
+  # S3 bucket for PCAPs (auto-empty on stack delete so delete leaves no trace)
+  # -----------------------------
+  PcapBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        IgnorePublicAcls: true
+        BlockPublicPolicy: true
+        RestrictPublicBuckets: true
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+
+  EmptyBucketRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: EmptyBucketPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                Resource: !GetAtt PcapBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:DeleteObject
+                  - s3:DeleteObjectVersion
+                Resource: !Sub "${PcapBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+
+  EmptyBucketFn:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !GetAtt EmptyBucketRole.Arn
+      Timeout: 300
+      Code:
+        ZipFile: |
+          import json, boto3, urllib.request
+
+          s3 = boto3.client("s3")
+
+          def send(event, context, status, data=None, reason=None):
+              resp = {
+                  "Status": status,
+                  "Reason": reason or ("See CloudWatch Logs: " + context.log_stream_name),
+                  "PhysicalResourceId": event.get("PhysicalResourceId", context.log_stream_name),
+                  "StackId": event["StackId"],
+                  "RequestId": event["RequestId"],
+                  "LogicalResourceId": event["LogicalResourceId"],
+                  "Data": data or {},
+              }
+              body = json.dumps(resp).encode("utf-8")
+              req = urllib.request.Request(event["ResponseURL"], data=body, method="PUT")
+              req.add_header("content-type", "")
+              req.add_header("content-length", str(len(body)))
+              urllib.request.urlopen(req)
+
+          def empty_bucket(bucket):
+              paginator = s3.get_paginator("list_object_versions")
+              for page in paginator.paginate(Bucket=bucket):
+                  objs = []
+                  for v in page.get("Versions", []):
+                      objs.append({"Key": v["Key"], "VersionId": v["VersionId"]})
+                  for v in page.get("DeleteMarkers", []):
+                      objs.append({"Key": v["Key"], "VersionId": v["VersionId"]})
+                  if objs:
+                      s3.delete_objects(Bucket=bucket, Delete={"Objects": objs, "Quiet": True})
+
+          def handler(event, context):
+              try:
+                  bucket = event["ResourceProperties"]["BucketName"]
+                  if event["RequestType"] == "Delete":
+                      empty_bucket(bucket)
+                  send(event, context, "SUCCESS", {"BucketEmptied": "true"})
+              except Exception as e:
+                  send(event, context, "FAILED", reason=str(e))
+
+  EmptyBucketCustom:
+    Type: Custom::EmptyBucket
+    Properties:
+      ServiceToken: !GetAtt EmptyBucketFn.Arn
+      BucketName: !Ref PcapBucket
+    DependsOn: PcapBucket
+
+  # -----------------------------
+  # IAM for EC2: SSM + read/write/delete in PCAP bucket (so script can rm zip from S3)
+  # -----------------------------
+  InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "ips-demo-ec2-role-${AWS::StackName}"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: PcapBucketAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt PcapBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource:
+                  - !Sub "${PcapBucket.Arn}/*"
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref InstanceRole
+
+  InstanceSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "No inbound; allow egress (inspected via NFW routing)"
+      VpcId: !Ref VPC
+      SecurityGroupIngress: []
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+
+  # -----------------------------
+  # EC2 instances (private subnets, no public IP)
+  # -----------------------------
+  VictimWindowsInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref VictimSubnet
+      SecurityGroupIds: [!Ref InstanceSg]
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !Sub "{{resolve:ssm:/aws/service/ami-windows-latest/Windows_Server-2022-English-Full-Base}}"
+      Tags:
+        - Key: Name
+          Value: ips-demo-victim-windows
+
+  AttackerInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: VictimWindowsInstance
+    Properties:
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref AttackerSubnet
+      SecurityGroupIds: [!Ref InstanceSg]
+      IamInstanceProfile: !Ref InstanceProfile
+      ImageId: !Sub "{{resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64}}"
+      Tags:
+        - Key: Name
+          Value: ips-demo-attacker
+      UserData:
+        Fn::Base64: !Join
+          - ""
+          - - |
+              #!/bin/bash
+              set -euo pipefail
+
+              # Install deps
+              dnf -y update
+              dnf -y groupinstall "Development Tools"
+              dnf -y install libpcap-devel tcpdump wget tar gzip unzip awscli
+
+              # Build tcpreplay suite (includes tcprewrite)
+              cd /tmp
+              wget -q https://github.com/appneta/tcpreplay/releases/download/v4.4.3/tcpreplay-4.4.3.tar.gz
+              tar -xzf tcpreplay-4.4.3.tar.gz
+              cd tcpreplay-4.4.3
+              ./configure
+              make
+              make install
+
+              mkdir -p /opt/pcaps
+
+            - !Sub |
+                # Set victim IP and default zip URI for convenience
+                echo "export VICTIM_IP=${VictimWindowsInstance.PrivateIpAddress}" >/etc/profile.d/ips_demo_env.sh
+                echo "export S3_ZIP_URI=s3://${PcapBucket}/${PcapsZipKey}" >>/etc/profile.d/ips_demo_env.sh
+                chmod 644 /etc/profile.d/ips_demo_env.sh
+
+            - |
+              # Write replay script (NO Fn::Sub in this body!)
+              cat >/usr/local/bin/replay_pcaps.sh <<'EOF'
+              #!/usr/bin/env bash
+              set -euo pipefail
+
+              PCAP_DIR="/opt/pcaps"
+              IFACE=""            # auto-detect if empty
+              PPS=""              # empty = as fast as possible
+              SLEEP_SEC="0"
+              VICTIM_IP="${VICTIM_IP:-}"
+              S3_ZIP_URI="${S3_ZIP_URI:-}"   # e.g. s3://bucket/pcaps.zip
+              ZIP_LOCAL="${ZIP_LOCAL:-/opt/pcaps/pcaps.zip}"
+              LOG_FILE="/var/log/pcap-replay.log"
+              DRY_RUN="0"
+
+              usage() {
+                cat <<USAGE
+              Usage: sudo replay_pcaps.sh [options]
+
+              Options:
+                --pcap-dir <dir>     Directory with .pcap files (default: /opt/pcaps)
+                --iface <name>       Interface for tcpreplay (default: auto)
+                --victim-ip <ip>     Victim private IP (required if VICTIM_IP env not set)
+                --pps <n>            Packets per second (optional)
+                --sleep <sec>        Sleep between files (default: 0)
+                --s3-zip <s3uri>     S3 URI of pcaps.zip (optional). If set: download once, cache locally, delete from S3, unzip.
+                --zip-local <path>   Local path for cached zip (default: /opt/pcaps/pcaps.zip)
+                --dry-run            Only show what would be done
+                -h|--help            Help
+              USAGE
+              }
+
+              while [[ $# -gt 0 ]]; do
+                case "$1" in
+                  --pcap-dir) PCAP_DIR="$2"; shift 2;;
+                  --iface) IFACE="$2"; shift 2;;
+                  --victim-ip) VICTIM_IP="$2"; shift 2;;
+                  --pps) PPS="$2"; shift 2;;
+                  --sleep) SLEEP_SEC="$2"; shift 2;;
+                  --s3-zip) S3_ZIP_URI="$2"; shift 2;;
+                  --zip-local) ZIP_LOCAL="$2"; shift 2;;
+                  --dry-run) DRY_RUN="1"; shift 1;;
+                  -h|--help) usage; exit 0;;
+                  *) echo "Unknown arg: $1"; usage; exit 1;;
+                esac
+              done
+
+              # IMDSv2 local IPv4
+              get_attacker_ip() {
+                local token
+                token=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" \
+                  -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+                curl -sS -H "X-aws-ec2-metadata-token: $token" \
+                  "http://169.254.169.254/latest/meta-data/local-ipv4"
+              }
+
+              detect_iface() {
+                if [[ -n "$IFACE" ]]; then
+                  echo "$IFACE"; return
+                fi
+                local d
+                d=$(ip route show default 2>/dev/null | awk '{print $5}' | head -1 || true)
+                if [[ -n "$d" ]]; then
+                  echo "$d"; return
+                fi
+                echo "eth0"
+              }
+
+              fetch_zip_if_needed() {
+                if [[ -z "$S3_ZIP_URI" ]]; then
+                  return 0
+                fi
+
+                mkdir -p "$PCAP_DIR"
+
+                if [[ -f "$ZIP_LOCAL" ]]; then
+                  echo "Using cached ZIP: $ZIP_LOCAL" | tee -a "$LOG_FILE"
+                else
+                  echo "Downloading ZIP from $S3_ZIP_URI to $ZIP_LOCAL" | tee -a "$LOG_FILE"
+                  aws s3 cp "$S3_ZIP_URI" "$ZIP_LOCAL"
+
+                  echo "Deleting ZIP from S3: $S3_ZIP_URI" | tee -a "$LOG_FILE"
+                  aws s3 rm "$S3_ZIP_URI" || true
+                fi
+
+                echo "Unzipping to $PCAP_DIR" | tee -a "$LOG_FILE"
+                rm -f "$PCAP_DIR"/*.pcap 2>/dev/null || true
+                unzip -j -o "$ZIP_LOCAL" -d "$PCAP_DIR" >/dev/null
+              }
+
+              ATTACKER_IP="$(get_attacker_ip)"
+              IFACE="$(detect_iface)"
+
+              if [[ -z "$VICTIM_IP" ]]; then
+                echo "ERROR: VICTIM_IP not set. Provide --victim-ip or export VICTIM_IP." | tee -a "$LOG_FILE"
+                exit 2
+              fi
+
+              echo "=== $(date -Is) Starting PCAP replay ===" | tee -a "$LOG_FILE"
+              echo "Attacker IP: $ATTACKER_IP" | tee -a "$LOG_FILE"
+              echo "Victim IP:   $VICTIM_IP" | tee -a "$LOG_FILE"
+              echo "PCAP dir:    $PCAP_DIR" | tee -a "$LOG_FILE"
+              echo "Iface:       $IFACE" | tee -a "$LOG_FILE"
+              echo "PPS:         ${PPS:-default}" | tee -a "$LOG_FILE"
+              echo "Sleep:       $SLEEP_SEC sec" | tee -a "$LOG_FILE"
+              echo "S3 ZIP:      ${S3_ZIP_URI:-none}" | tee -a "$LOG_FILE"
+              echo "Dry-run:     $DRY_RUN" | tee -a "$LOG_FILE"
+
+              fetch_zip_if_needed
+
+              shopt -s nullglob
+              pcaps=("$PCAP_DIR"/*.pcap)
+              if [[ ${#pcaps[@]} -eq 0 ]]; then
+                echo "No .pcap files found in $PCAP_DIR" | tee -a "$LOG_FILE"
+                exit 0
+              fi
+
+              for f in "${pcaps[@]}"; do
+                base="$(basename "$f")"
+
+                line="$(tcpdump -nn -r "$f" -c 1 'ip' 2>/dev/null | head -1 || true)"
+                if [[ -z "$line" ]]; then
+                  echo "SKIP $base: no IPv4 packets (or unreadable)" | tee -a "$LOG_FILE"
+                  continue
+                fi
+
+                src_with_port="$(echo "$line" | awk '{print $3}')"
+                dst_with_port="$(echo "$line" | awk '{print $5}')"
+                dst_with_port="${dst_with_port%:}"
+
+                old_src="${src_with_port%.*}"
+                old_dst="${dst_with_port%.*}"
+
+                tmp="/tmp/rew_${base}"
+
+                echo "--- $(date -Is) $base: $old_src -> $old_dst  ==>  $ATTACKER_IP -> $VICTIM_IP" | tee -a "$LOG_FILE"
+
+                if [[ "$DRY_RUN" == "1" ]]; then
+                  continue
+                fi
+
+                tcprewrite \
+                  --srcipmap="${old_src}:${ATTACKER_IP}" \
+                  --dstipmap="${old_dst}:${VICTIM_IP}" \
+                  --infile="$f" \
+                  --outfile="$tmp" >/dev/null
+
+                if [[ -n "$PPS" ]]; then
+                  tcpreplay --intf1="$IFACE" --pps="$PPS" "$tmp" | tee -a "$LOG_FILE"
+                else
+                  tcpreplay --intf1="$IFACE" "$tmp" | tee -a "$LOG_FILE"
+                fi
+
+                rm -f "$tmp"
+
+                if [[ "$SLEEP_SEC" != "0" ]]; then
+                  sleep "$SLEEP_SEC"
+                fi
+              done
+
+              echo "=== $(date -Is) Done ===" | tee -a "$LOG_FILE"
+              EOF
+
+              chmod +x /usr/local/bin/replay_pcaps.sh
+
+              echo "Attacker ready."
+              echo "After new login, VICTIM_IP and S3_ZIP_URI are set in /etc/profile.d/ips_demo_env.sh"
+              echo "Run:"
+              echo "  sudo /usr/local/bin/replay_pcaps.sh --pps 10 --sleep 1"
+              echo "  sudo /usr/local/bin/replay_pcaps.sh --s3-zip \"$S3_ZIP_URI\" --pps 10 --sleep 1"
+
+Outputs:
+  VpcId:
+    Value: !Ref VPC
+
+  FirewallName:
+    Value: !Ref NetworkFirewall
+
+  FirewallPolicyArn:
+    Value: !Ref FirewallPolicy
+
+  PcapBucketName:
+    Value: !Ref PcapBucket
+
+  DefaultPcapsZipS3Uri:
+    Value: !Sub "s3://${PcapBucket}/${PcapsZipKey}"
+
+  AlertLogGroup:
+    Value: !Ref NfwAlertLogGroup
+
+  FlowLogGroup:
+    Value: !Ref NfwFlowLogGroup
+
+  AttackerInstanceId:
+    Value: !Ref AttackerInstance
+
+  VictimWindowsInstanceId:
+    Value: !Ref VictimWindowsInstance
+
+  VictimPrivateIp:
+    Value: !GetAtt VictimWindowsInstance.PrivateIpAddress
