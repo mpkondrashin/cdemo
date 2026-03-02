@@ -48,12 +48,13 @@ On the AWS CloudFormation console chechk outputs of the stack to get the S3 buck
 5. Add the TrendAI Vision One IPS rule group to the policy
 
 ### Upload pcaps.zip
-1. Go to S3
-2. Upload the `pcaps.zip` file to the S3 bucket created by the CloudFormation stack
+1. pcaps.zip should be provided by the user. It should be just a zip file with any amount of `.pcap` files inside.
+2. Go to S3
+3. Upload the `pcaps.zip` file to the S3 bucket created by the CloudFormation stack
 
 ## Demo
 
-### Generate alers
+### Generate alerts
 1. On AWS console go to EC2
 2. Select the instance ```ips-demo-attacker```
 3. Push "Connect" button
