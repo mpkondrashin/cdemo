@@ -204,10 +204,11 @@ Resources:
     Properties:
       FirewallPolicyName: !Sub "ips-demo-policy-${AWS::StackName}"
       FirewallPolicy:
-        StatelessDefaultActions:
-          - aws:forward_to_sfe
-        StatelessFragmentDefaultActions:
-          - aws:forward_to_sfe
+        StatelessDefaultActions: [aws:forward_to_sfe]
+        StatelessFragmentDefaultActions: [aws:forward_to_sfe]
+
+        StatefulEngineOptions:
+          RuleOrder: STRICT_ORDER
 
   NetworkFirewall:
     Type: AWS::NetworkFirewall::Firewall
@@ -457,7 +458,9 @@ Resources:
     Properties:
       GroupDescription: "No inbound; allow egress (inspected via NFW routing)"
       VpcId: !Ref VPC
-      SecurityGroupIngress: []
+      SecurityGroupIngress:
+        - IpProtocol: "-1"
+          SourceSecurityGroupId: !Ref InstanceSg
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: 0.0.0.0/0
