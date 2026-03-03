@@ -113,6 +113,12 @@ If `pcaps.zip` file has password, you will be prompted to enter it. It is usuall
 4. Click on the log stream
 5. You should see the logs from the IPS
 
+In case you prefer CLI:
+```bash
+aws logs filter-log-events \
+  --log-group-name /aws/network-firewall/ips-demo/alert
+```
+
 ## Cleanup
 
 To cleanup infrastructure after demo, CloudFormation stack should be deleted and Cloud IPS subscription canceled.
