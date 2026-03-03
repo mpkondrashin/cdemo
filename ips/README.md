@@ -1,4 +1,4 @@
-# Showcase Trend AI Vision One IPS
+# Showcase TrendAI Vision One Cloud IPS
 
 ## Table of contents
 - [Requirements](#requirements)
@@ -9,14 +9,22 @@
 ## Requirements
 
 - AWS account with permissions to create VPC, EC2, Network Firewall, S3, and CloudWatch resources
-- [Optional] Configured AWS CLI with appropriate credentials and region (e.g. us-east-1) if CLI commands will be used within the caurse of the demo.
 - Collection of PCAP files to showcase detections
-
+- [Optional] Configured AWS CLI with appropriate credentials and region (e.g. us-east-1) if CLI commands will be used within the caurse of the demo.
+- [Optional] Git CLI
 ## Deployment
+
 
 ### Deploy CloudFormation Template
 Infrastructure diagram:
 <img src="ips_demo_-_aws_network_firewall.png" alt="AWS Diagram">
+
+Download ips.yaml from <a href="https://github.com/mpkondrashin/cdemo/tree/main/ips">GitHub</a> or use git CLI:
+```bash
+git clone https://github.com/mpkondrashin/cdemo.git
+```
+Then go to the folder `ips`
+
 #### Using CLI:
 Run the following command to deploy the stack:
 ```bash
